@@ -1,0 +1,216 @@
+# =============================================================================
+# Vocalmeet DevTools - WordPress Development Environment
+# =============================================================================
+# Usage: just <command>
+# Run `just --list` to see all available commands
+# =============================================================================
+
+set shell := ["bash", "-cu"]
+
+# Docker compose file for assessment
+compose := "docker compose -f ./docker-compose-assessment.yaml"
+
+# Source code path (relative to this directory)
+source_path := "../../../vocalmeet/assessment/wordpress"
+
+# =============================================================================
+# Core Commands
+# =============================================================================
+
+# Show all available commands
+default:
+    @just --list
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+# Generate SSL certificate for HTTPS (first time setup)
+ssl-generate:
+    @echo "🔐 Generating SSL certificate..."
+    ./scripts/generate-ssl.sh
+
+# Initial setup: generate SSL + start services + install plugins
+setup: ssl-generate
+    @echo "🚀 Starting WordPress environment..."
+    {{compose}} up -d mysql nginx wordpress phpmyadmin
+    @echo "⏳ Waiting for WordPress to be ready..."
+    @sleep 30
+    @echo "📦 Installing required plugins..."
+    just wp plugin install elementor --activate
+    just wp plugin install woocommerce --activate
+    @echo ""
+    @echo "✅ Setup complete!"
+    @echo "   WordPress:   https://localhost"
+    @echo "   phpMyAdmin:  http://localhost:8081"
+    @echo ""
+    @echo "⚠️  Note: Accept the self-signed certificate warning in your browser"
+
+# =============================================================================
+# Service Management
+# =============================================================================
+
+# Start all services
+start:
+    @echo "🚀 Starting WordPress environment..."
+    {{compose}} up -d mysql nginx wordpress phpmyadmin
+    @echo ""
+    @echo "✅ Services started!"
+    @echo "   WordPress:   https://localhost"
+    @echo "   phpMyAdmin:  http://localhost:8081"
+
+# Stop all services (keeps data)
+stop:
+    @echo "🛑 Stopping services..."
+    {{compose}} stop
+
+# Stop and remove all containers (keeps volumes/data)
+down:
+    @echo "🛑 Stopping and removing containers..."
+    {{compose}} down
+
+# Stop, remove containers AND delete all data
+clean:
+    @echo "🗑️  Removing everything including data..."
+    {{compose}} down -v
+    @echo "✅ All containers and volumes removed"
+
+# Restart all services
+restart: stop start
+
+# Show status of all services
+status:
+    {{compose}} ps
+
+# =============================================================================
+# Logs
+# =============================================================================
+
+# View logs from all services
+logs:
+    {{compose}} logs -f
+
+# View WordPress logs only
+log-wordpress:
+    {{compose}} logs -f wordpress
+
+# View MySQL logs only
+log-mysql:
+    {{compose}} logs -f mysql
+
+# View Nginx logs only
+log-nginx:
+    {{compose}} logs -f nginx
+
+# =============================================================================
+# WP-CLI Commands
+# =============================================================================
+
+# Run WP-CLI command (usage: just wp <command>)
+wp *args:
+    {{compose}} run --rm wpcli {{args}}
+
+# Install and activate a plugin
+plugin-install name:
+    {{compose}} run --rm wpcli plugin install {{name}} --activate
+
+# List installed plugins
+plugin-list:
+    {{compose}} run --rm wpcli plugin list
+
+# WordPress core version
+wp-version:
+    {{compose}} run --rm wpcli core version
+
+# Create WooCommerce REST API keys (run after WooCommerce is installed)
+wc-create-api-keys:
+    @echo "🔑 Creating WooCommerce REST API keys..."
+    @echo "   Go to: https://localhost/wp-admin/admin.php?page=wc-settings&tab=advanced&section=keys"
+    @echo "   Or run the following WP-CLI command after completing WordPress setup:"
+    @echo ""
+    @echo "   just wp wc api keys create --name=\"Assessment API\" --user=admin --permissions=read_write"
+
+# =============================================================================
+# Database
+# =============================================================================
+
+# Access MySQL shell
+db-shell:
+    {{compose}} exec mysql mysql -u vocalmeet -pvocalmeet_pass vocalmeet
+
+# Access MySQL as root
+db-root:
+    {{compose}} exec mysql mysql -u root -pvocalmeet_root_pass
+
+# Export database to file
+db-export:
+    @echo "📤 Exporting database..."
+    {{compose}} exec mysql mysqldump -u root -pvocalmeet_root_pass vocalmeet > ./backup.sql
+    @echo "✅ Database exported to ./backup.sql"
+
+# Import database from file
+db-import file:
+    @echo "📥 Importing database from {{file}}..."
+    {{compose}} exec -T mysql mysql -u root -pvocalmeet_root_pass vocalmeet < {{file}}
+    @echo "✅ Database imported"
+
+# Reset database (drop and recreate)
+db-reset:
+    @echo "⚠️  This will DELETE all data. Press Ctrl+C to cancel..."
+    @sleep 3
+    {{compose}} exec mysql mysql -u root -pvocalmeet_root_pass -e "DROP DATABASE IF EXISTS vocalmeet; CREATE DATABASE vocalmeet;"
+    @echo "✅ Database reset complete"
+
+# =============================================================================
+# Development Helpers
+# =============================================================================
+
+# Open WordPress in browser
+open:
+    open https://localhost
+
+# Open phpMyAdmin in browser
+open-db:
+    open http://localhost:8081
+
+# Watch plugin directory for changes (requires fswatch)
+watch-plugins:
+    @echo "👀 Watching {{source_path}}/plugins for changes..."
+    fswatch -o {{source_path}}/plugins | xargs -n1 -I{} echo "📁 Plugin files changed"
+
+# Shell into WordPress container
+shell:
+    {{compose}} exec wordpress bash
+
+# Show WordPress debug log
+debug-log:
+    {{compose}} exec wordpress tail -f /var/www/html/wp-content/debug.log
+
+# =============================================================================
+# Assessment Specific
+# =============================================================================
+
+# Quick setup for assessment: start + install required plugins
+assessment-start: start
+    @echo "⏳ Waiting for WordPress to be ready..."
+    @sleep 15
+    @echo "📦 Checking plugins..."
+    just wp plugin is-installed elementor || just wp plugin install elementor --activate
+    just wp plugin is-installed woocommerce || just wp plugin install woocommerce --activate
+    @echo ""
+    @echo "✅ Assessment environment ready!"
+    @echo "   WordPress:   https://localhost"
+    @echo "   phpMyAdmin:  http://localhost:8081"
+
+# Verify assessment setup
+assessment-verify:
+    @echo "🔍 Verifying assessment setup..."
+    @echo ""
+    @echo "WordPress version:"
+    @just wp core version
+    @echo ""
+    @echo "Installed plugins:"
+    @just wp plugin list --status=active
+    @echo ""
+    @echo "WooCommerce status:"
+    @just wp wc api keys list 2>/dev/null || echo "   No API keys found. Create one in WP Admin or run: just wc-create-api-keys"
