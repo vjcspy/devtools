@@ -22,3 +22,19 @@ shell:
 # Show WordPress debug log
 debug-log:
     {{compose}} exec wordpress tail -f /var/www/html/wp-content/debug.log
+
+# Enable Xdebug
+debug-on:
+    @sed -i '' 's/xdebug.mode=off/xdebug.mode=debug/g' ./php/xdebug.ini
+    @sed -i '' 's/xdebug.start_with_request=no/xdebug.start_with_request=yes/g' ./php/xdebug.ini
+    @echo "🚀 Enabling Xdebug..."
+    {{compose}} exec wordpress apache2ctl graceful
+    @echo "✅ Xdebug enabled"
+
+# Disable Xdebug
+debug-off:
+    @sed -i '' 's/xdebug.mode=debug/xdebug.mode=off/g' ./php/xdebug.ini
+    @sed -i '' 's/xdebug.start_with_request=yes/xdebug.start_with_request=no/g' ./php/xdebug.ini
+    @echo "🛑 Disabling Xdebug..."
+    {{compose}} exec wordpress apache2ctl graceful
+    @echo "✅ Xdebug disabled"

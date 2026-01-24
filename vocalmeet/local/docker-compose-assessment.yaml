@@ -25,10 +25,12 @@ services:
       - vocalmeet-network
 
   # =============================================================================
-  # WordPress Application
+  # WordPress Application with Xdebug
   # =============================================================================
   wordpress:
-    image: wordpress:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.wordpress
     restart: unless-stopped
     depends_on:
       mysql:
@@ -39,6 +41,7 @@ services:
       WORDPRESS_DB_USER: ${MYSQL_USER:-vocalmeet}
       WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-vocalmeet_pass}
       WORDPRESS_DEBUG: ${WORDPRESS_DEBUG:-1}
+      PHP_IDE_CONFIG: "serverName=vocalmeet.local"
       # Important: Tell WordPress it's behind HTTPS proxy
       WORDPRESS_CONFIG_EXTRA: |
         define('WP_DEBUG', true);
@@ -58,11 +61,11 @@ services:
         /* WooCommerce REST API - Allow HTTP for local development */
         define('WC_API_DEV_MODE', true);
     volumes:
-      - wordpress_data:/var/www/html
-      # Mount custom plugins from assessment folder
-      - ../../../vocalmeet/assessment/wordpress/plugins:/var/www/html/wp-content/plugins/vocalmeet:ro
-      # Mount custom themes from assessment folder (optional)
-      - ../../../vocalmeet/assessment/wordpress/themes:/var/www/html/wp-content/themes/vocalmeet:ro
+      # Mount entire WordPress source to local folder for IDE access
+      # Configure WORDPRESS_SOURCE_PATH in .env file
+      - ${WORDPRESS_SOURCE_PATH}:/var/www/html
+      # Mount Xdebug config for runtime editing
+      - ./php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 30s
@@ -117,8 +120,8 @@ services:
       wordpress:
         condition: service_healthy
     volumes:
-      - wordpress_data:/var/www/html
-      - ../../../vocalmeet/assessment/wordpress/plugins:/var/www/html/wp-content/plugins/vocalmeet:ro
+      # Same mount as wordpress service
+      - ${WORDPRESS_SOURCE_PATH}:/var/www/html
     environment:
       WORDPRESS_DB_HOST: mysql:3306
       WORDPRESS_DB_NAME: ${MYSQL_DATABASE:-vocalmeet}
@@ -140,5 +143,5 @@ networks:
 volumes:
   mysql_data:
     name: vocalmeet_assessment_mysql_data
-  wordpress_data:
-    name: vocalmeet_assessment_wordpress_data
+  # Note: wordpress_data volume is no longer used
+  # WordPress files are now mounted from local folder

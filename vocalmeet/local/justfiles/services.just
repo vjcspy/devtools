@@ -2,6 +2,12 @@
 # Service Management Commands
 # =============================================================================
 
+# Build WordPress image (with Xdebug)
+build:
+    @echo "🔨 Building WordPress image with Xdebug..."
+    {{compose}} build wordpress
+    @echo "✅ Build complete!"
+
 # Start all services
 start:
     @echo "🚀 Starting WordPress environment..."
@@ -34,8 +40,8 @@ restart: stop start
 status:
     {{compose}} ps
 
-# Initial setup: generate SSL + start services + install plugins
-setup: ssl-generate
+# Initial setup: build image + generate SSL + start services + install plugins
+setup: build ssl-generate
     @echo "🚀 Starting WordPress environment..."
     {{compose}} up -d mysql nginx wordpress phpmyadmin
     @echo "⏳ Waiting for WordPress to be ready..."
@@ -49,3 +55,5 @@ setup: ssl-generate
     @echo "   phpMyAdmin:  {{phpmyadmin_url}}"
     @echo ""
     @echo "⚠️  Note: Accept the self-signed certificate warning in your browser"
+    @echo "📁 WordPress source: vocalmeet/assessment/wordpress/"
+    @echo "🐛 Xdebug enabled on port 9003"
