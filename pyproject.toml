@@ -1,0 +1,17 @@
+[project]
+name = "devtools-workspace"
+version = "0.1.0"
+description = "Unified development tools monorepo"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "common/cli/*",
+    "nab/cli/*",
+    "tinybots/cli/*",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
