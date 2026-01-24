@@ -52,8 +52,8 @@ services:
         }
         
         /* Site URLs - adjust if needed */
-        define('WP_HOME', 'https://localhost');
-        define('WP_SITEURL', 'https://localhost');
+        define('WP_HOME', 'https://vocalmeet.local');
+        define('WP_SITEURL', 'https://vocalmeet.local');
         
         /* WooCommerce REST API - Allow HTTP for local development */
         define('WC_API_DEV_MODE', true);
@@ -124,6 +124,8 @@ services:
       WORDPRESS_DB_NAME: ${MYSQL_DATABASE:-vocalmeet}
       WORDPRESS_DB_USER: ${MYSQL_USER:-vocalmeet}
       WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-vocalmeet_pass}
+      # Use /tmp for WP-CLI cache to avoid permission issues
+      WP_CLI_CACHE_DIR: /tmp/wp-cli-cache
     entrypoint: ["wp", "--allow-root"]
     user: "33:33"
     profiles:
